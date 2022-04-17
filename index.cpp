@@ -7,22 +7,17 @@
 #include <stdlib.h>
 #include <vector>
 #include <ctime>
-#include <GL/GL.h>
-#include <GL/GLU.h>
-#include "Dependencies/GLFW/glfw3.h"
-#include "Dependencies/nlopt/nlopt.hpp"
+#include <gnugraph/GnuGraph.h>
 #include "yfapi.hpp"
-
-
 
 int main(){
   
   yfapi::YahooFinanceAPI api;
-  api.set_interval(DAILY);
+  api.set_interval(MONTHLY);
 
   // Variables
-  std::string start = "2021-01-31";
-  std::string end = "2021-12-31";
+  std::time_t end = std::time(0);
+  std::time_t start = end - 86400*1826;
   const bool keep_file = false;
 
   std::vector<std::string> tickers;
@@ -47,7 +42,7 @@ int main(){
     
     stock.clear();
     stock_returns.clear();
-    stock = api.get_ticker_data(tickers[i], start, end, "Adj Close", keep_file);
+    stock = api.get_ticker_data(tickers[i], start, end, "Close", keep_file);
     stock_returns = api.returns(stock);
     stocks.push_back(stock_returns);
   } 
@@ -57,7 +52,7 @@ int main(){
   double rfr = api.risk_free_rate();
   
   // Generating the efficient frontier through simulation
-  int portfolio_num = 100;
+  int portfolio_num = 100000;
   std::vector<std::vector<double>> weights;
   std::vector<double> weight;
   std::vector<double> expected_return;
@@ -65,9 +60,9 @@ int main(){
   std::vector<double> expected_volatility;
   double exp_v;
   std::vector<double> sharpe;
+  double sharpe_r;
 
-  double mean = api.portfolio_mean_ret(stocks);
-  double cov = api.portfolio_cov(stocks);
+  std::vector<double> mean = api.portfolio_mean_ret(stocks);
 
   // Random weight vector generator
   std::srand(time(0));
@@ -88,50 +83,30 @@ int main(){
     weights.push_back(weight);
 
     for (int j = 0; j < weight.size(); ++j){
-      exp_r += (weight[j] * mean);
+      exp_r += (weight[j] * mean[j]);
     }
-    exp_v = api.exp_volatility(cov, weight);
+    exp_v = std::sqrt(api.portfolio_var(stocks, weight));
     expected_return.push_back(exp_r);
     expected_volatility.push_back(exp_v);
-    sharpe.push_back(exp_r/exp_v);
+    //Get annualized sharpe ratio
+    sharpe_r = std::sqrt(12)*(exp_r - rfr)/exp_v;
+    sharpe.push_back(sharpe_r);
   }
+  double max = vec_max(sharpe);
+  int index = search(sharpe, max);
 
-  nlopt::opt(NLOPT_GD_STOGO, stocks.size());
-  ~nlopt::opt();
+  std::cout << "The optimal portfolio allocation is [";
+  for (int i = 0; i < weights[0].size()-1; ++i){
+    std::cout << weights[index][i] <<", ";
+  }
+  std::cout << weights[index][weights[0].size()-1] << "] with a sharpe ratio of " << max << std::endl;
+  
   /*
   //Drawing the scatterplot
-  GLFWwindow* window;
-
-  if(!glfwInit()){
-    return -1;
-  }
-
-  
-
-  window = glfwCreateWindow(640, 480, "Efficient frontier", NULL, NULL);
-  if(!window){
-    glfwTerminate();
-    return -1;
-  }
-
-  if(glewInit() != GLEW_OK){
-    std::cout << "Error!" << std::endl;
-  }
-
-  glfwMakeContextCurrent(window);
-
-  while(!glfwWindowShouldClose(window)){
-    glClear(GL_COLOR_BUFFER_BIT);
-
-    glDrawArrays(GL_2D, 0, portfolio_num);
-
-
-    glfwSwapBuffers(window);
-
-    glfwPollEvents();
-  }
-
-  glfwTerminate();
+  GnuGraph graph("C:/Program Files/gnuplot/bin");
+  const std::string output = graph.plot(expected_volatility, expected_return);
+  std::cout << output << '\n';
+  std::cin.get();
   */
   return 0;
 }

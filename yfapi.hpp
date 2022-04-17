@@ -20,20 +20,18 @@ namespace yfapi
     public:
       YahooFinanceAPI();
       void set_interval(Interval interval);
-      std::vector<double> get_ticker_data(std::string ticker, std::string start_date, std::string end_date, std::string column, bool keep_file);
-      std::string download_ticker_data(std::string ticker, std::string start_date, std::string end_date);
+      std::vector<double> get_ticker_data(std::string ticker, std::time_t start_date, std::time_t end_date, std::string column, bool keep_file);
+      std::string download_ticker_data(std::string ticker, std::time_t start_date, std::time_t end_date);
       double risk_free_rate();
       std::vector<double> returns(std::vector<double> vec);
-      double portfolio_mean_ret(std::vector<std::vector<double>> vec);
-      double portfolio_cov(std::vector<std::vector<double>> vec);
-      double exp_volatility(double Sigma, std::vector<double> weight);
+      std::vector<double> portfolio_mean_ret(std::vector<std::vector<double>> vec);
+      double portfolio_var(std::vector<std::vector<double>> returns, std::vector<double> weight);
 
     private:
       std::string _base_url;
       Interval _interval;
-      std::string build_url(std::string ticker, std::string start_date, std::string end_date);
+      std::string build_url(std::string ticker, std::time_t start_date, std::time_t end_date);
       bool string_replace(std::string& str, const std::string from, const std::string to);
-      std::string timestamp_from_string(std::string date);
       void download_file(std::string url, std::string filename);
   };
 
@@ -43,23 +41,10 @@ namespace yfapi
     this->_interval = DAILY;
   }
 
-  //Writes the timestamp for the url
-  std::string YahooFinanceAPI::timestamp_from_string(std::string date){
-    struct std::tm time = {0,0,0,0,0,0,0,0,0};
-    std::istringstream ss(date);
-    ss >> std::get_time(&time, "%Y-%m-%d");
-    if(ss.fail()){
-      std::cerr << "ERROR: Cannot parse date string (" << date << "); required format %Y-%m-%d" << std::endl;
-      exit(1);
-    }
-    time.tm_hour = 0;
-    time.tm_min = 0;
-    time.tm_sec = 0;
-    std::time_t epoch = std::mktime(&time);
-
-    return std::to_string(epoch);
-  }
-
+  /*
+  Purpose: Replaces a portion of a string
+  Time complexity: O(n), where n is the length of str
+  */
   bool YahooFinanceAPI::string_replace(std::string& str, const std::string from, const std::string to){
     size_t start = str.find(from);
     if(start == std::string::npos){
@@ -69,22 +54,31 @@ namespace yfapi
     return true;
   }
 
-  //Builds the URL for grabbing data
-  std::string YahooFinanceAPI::build_url(std::string ticker, std::string start, std::string end){
+  /*
+  Purpose: A helper function to build the url for downloading data from yahoo finance
+  Time complexity: O(n), where n is the length of the string
+  */
+  std::string YahooFinanceAPI::build_url(std::string ticker, std::time_t start, std::time_t end){
     std::string url = this->_base_url;
     string_replace(url, "{ticker}", ticker);
-    string_replace(url, "{start_time}", timestamp_from_string(start));
-    string_replace(url, "{end_time}", timestamp_from_string(end));
+    string_replace(url, "{start_time}", std::to_string(start));
+    string_replace(url, "{end_time}", std::to_string(end));
     string_replace(url, "{interval}", get_api_interval_value(this->_interval));
     return url;
   }
 
-  // Sets the interval
+  /*
+  Purpose: Sets the interval for the YahooFinanceAPI class
+  Time complexity: O(1)
+  */
   void YahooFinanceAPI::set_interval(Interval interval){
     this->_interval = interval;
   }
 
-  // Downloads the CSV
+  /*
+  Purpose: A helper function for downloading a csv containing financial data and save it as the filename inputed
+  Time complexity: O(n), where n is the number of items in the csv
+  */
   void YahooFinanceAPI::download_file(std::string url, std::string filename){
     FILE *fp;
     CURLcode res;
@@ -106,8 +100,11 @@ namespace yfapi
     }
   }
 
-  //Writes a temporary file and stores data
-  std::vector<double> YahooFinanceAPI::get_ticker_data(std::string ticker, std::string start, std::string end, std::string column, bool keep_file){
+  /*
+  Purpose: Retrieves data from the ticker inputed and returns a vector with the csv's column data. Based on the variable keep_file, it may save the file
+  Time Complexity: O(n), where n is the amount of items in the csv
+  */
+  std::vector<double> YahooFinanceAPI::get_ticker_data(std::string ticker, std::time_t start, std::time_t end, std::string column, bool keep_file){
     // Downloading the file
     std::string url = build_url(ticker, start, end);
     std::string output_file = ticker + ".csv";
@@ -160,7 +157,10 @@ namespace yfapi
     return arr;
   }
   
-  // Returns the latest 10 Year Treasury Yield
+  /*
+  Purpose: Retrieves the latest 10 Year Treasury Rate, and adjusts to monthly
+  Time Complexity: O(n), where n is the amount of items in the csv
+  */
   double YahooFinanceAPI::risk_free_rate(){
     std::time_t now = time(0);
     std::tm *date = localtime(&now);
@@ -193,11 +193,14 @@ namespace yfapi
 
     f.close();
     std::remove(output_file.c_str());
-    return arr[0];
+    return arr[0]/1200;
   }
  
-  // Writes the CSV downloaded into a csv file
-  std::string YahooFinanceAPI::download_ticker_data(std::string ticker, std::string start, std::string end){
+  /*
+  Purpose: Writes the CSV downloaded into a csv file
+  Time Complexity: O(n), where n is the amount of items in the csv
+  */
+  std::string YahooFinanceAPI::download_ticker_data(std::string ticker, std::time_t start, std::time_t end){
     std::string url = build_url(ticker, start, end);
     std::string output_file = ticker + ".csv";
     download_file(url, output_file);
@@ -205,7 +208,10 @@ namespace yfapi
     return output_file;
   }
 
-  // Gets the log returns of the vector
+  /*
+  Purpose: A helper function that transforms the stock data inputted and returns the log return of the stock into a vector
+  Time Complexity: O(n-1) , where n is the number of items in the vector
+  */
   std::vector<double> YahooFinanceAPI::returns(std::vector<double> vec){
     double returns = 0;
     std::vector<double> return_vec;
@@ -218,46 +224,36 @@ namespace yfapi
     return return_vec;
   }
 
-  double YahooFinanceAPI::portfolio_mean_ret(std::vector<std::vector<double>> vec){
-    double mean;
+  /*
+  Purpose: Returns a vector with the mean of the log return of each security
+  Time Complexity: O(n*m), where n is the amount of securities and m is the amount of return data per security
+  */
+  std::vector<double> YahooFinanceAPI::portfolio_mean_ret(std::vector<std::vector<double>> vec){
+    std::vector<double> mean;
+    double stock_mean;
     for (int i = 0; i < vec.size(); ++i){
-      mean += (std::accumulate(vec[i].begin(), vec[i].end(), 0.0) / vec[i].size());
+      stock_mean = std::accumulate(vec[i].begin(), vec[i].end(), 0.0);
+      stock_mean /= vec[i].size();
+      mean.push_back(stock_mean);
     }
-    mean /= vec.size();
     return mean;
   }
 
-  double YahooFinanceAPI::portfolio_cov(std::vector<std::vector<double>> vec){
-    if (vec.size() == 1){
-      return var(vec[0]);
+  /*
+  Purpose: Returns the portfolio variance based of the returns and the weighting put into each security
+  Time complexity: O(n*m), where n is the amount of securities and m is the amount of return data per security
+  */
+  double YahooFinanceAPI::portfolio_var(std::vector<std::vector<double>> returns, std::vector<double> weight){
+    double variance;
+    if (returns.size() == 1){
+      return var(returns[0]);
     } else {
-      std::vector<double> sum_vec;
-      double sum, mean;
-      double cov = 1;
-      for(int i = 0; i < vec.size(); ++i){
-        mean = (std::accumulate(vec[i].begin(), vec[i].end(), 0.0) / vec[i].size());
-        for(int j = 0; j < vec[i].size(); ++j){
-          sum += (vec[i][j] - mean);
+      for(int i = 0; i < returns.size(); ++i){
+        for(int j = 0; j < weight.size(); ++j){
+          variance += weight[i] * weight[j] * cov(returns[i], returns[j]);
         }
-        sum_vec.push_back(sum);
       }
-      for(int i = 0; i < sum_vec.size(); ++i){
-        cov *= sum_vec[i];
-      }
-      cov /= (sum_vec.size() - 1);
-      return cov;
     }
-  }
-
-  double YahooFinanceAPI::exp_volatility(double Sigma, std::vector<double> weight){
-    std::vector<double> temp;
-    double sum;
-    for(int i = 0; i < weight.size(); ++i){
-      temp.push_back(Sigma * weight[i]);
-    }
-    for(int j = 0; j < weight.size(); ++j){
-      sum += (weight[j] * temp[j]);
-    }
-    return sqrt(sum);
+    return variance;
   }
 }
