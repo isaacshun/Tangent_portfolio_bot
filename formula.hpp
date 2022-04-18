@@ -61,6 +61,18 @@ double vec_max(std::vector<double> vec){
 }
 
 /*
+Purpose: Gets the min number in an unsorted vector
+Time complexity: O(n), where n is the amount of items in the vector
+*/
+double vec_min(std::vector<double> vec){
+  double min = 1000;
+  for(int i = 0; i < vec.size(); ++i){
+    if (min > vec[i]) min = vec[i];
+  }
+  return min;
+}
+
+/*
 Purpose: Searches for an item within the unsorted vector, and returns the position within the vector
 Time complexity: O(n), where n is the amount of items in the vector
 */

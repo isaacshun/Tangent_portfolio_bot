@@ -93,17 +93,46 @@ int main(){
     sharpe_r = std::sqrt(365)*(exp_r - rfr)/exp_v;
     sharpe.push_back(sharpe_r);
   }
+  // Optimal portfolio allocation
   double max = vec_max(sharpe);
   int index = search(sharpe, max);
 
-  std::cout << "The optimal portfolio allocation is [";
+  // Minimum volatility portfolio
+  double min = vec_min(expected_volatility);
+  int min_index = search(expected_volatility, min);
+
+  //Stop timer
+  auto stop = std::chrono::high_resolution_clock::now();
+  auto duration = std::chrono::duration_cast<std::chrono::seconds>(stop - run);
+
+  // Optimal portfolio
+  std::cout << std::string(80, '-') << '\n';
+  std::cout << "Optimal portfolio allocation" << "\n\n\n";
+  std::cout << "Optimal portfolio weight: " << "[";
   for (int i = 0; i < weights[0].size()-1; ++i){
     std::cout << weights[index][i] <<", ";
   }
-  std::cout << weights[index][weights[0].size()-1] << "] with a sharpe ratio of " << max << std::endl;
-  auto stop = std::chrono::high_resolution_clock::now();
-  auto duration = std::chrono::duration_cast<std::chrono::seconds>(stop - run);
-  std::cout << duration.count() << std::endl;
+  std::cout << weights[index][weights[0].size()-1] << "] \n";
+  std::cout << "Expected daily return: " << expected_return[index]*100 << "% \n";
+  std::cout << "Expected daily return volatility: " << expected_volatility[index]*100 << "% \n";
+  std::cout << "Sharpe ratio: " << max << '\n';
+  std::cout << std::string(80, '-') << std::endl;
+
+  // Minimum volatility
+  std::cout << "Minimum volatility portfolio" << "\n\n\n";
+  std::cout << "Minimum volatility portfolio weight: " << "[";
+  for (int i = 0; i < weights[0].size()-1; ++i){
+    std::cout << weights[min_index][i] <<", ";
+  }
+  std::cout << weights[min_index][weights[0].size()-1] << "] \n";
+  std::cout << "Expected daily return: " << expected_return[min_index]*100 << "% \n";
+  std::cout << "Expected daily return volatility: " << min*100 << "% \n";
+  std::cout << "Sharpe ratio: " << sharpe[min_index] << '\n';
+  std::cout << std::string(80, '-') << std::endl;
+
+  std::cout << "Algorithm runtime: " << duration.count() << '\n';
+  std::cout << std::string(80, '-') << std::endl;
+
   
   /*
   //Drawing the scatterplot
