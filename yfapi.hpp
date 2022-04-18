@@ -166,11 +166,11 @@ namespace yfapi
     std::tm *date = localtime(&now);
     --date->tm_mday;
     std::string url = this->_base_url;
-    string_replace(url, "{ticker}", "^TNX");
+    string_replace(url, "{ticker}", "^IRX");
     string_replace(url, "{start_time}", std::to_string(mktime(date)));
     string_replace(url, "{end_time}", std::to_string(now));
     string_replace(url, "{interval}", get_api_interval_value(this->_interval));
-    std::string output_file = "TNX.csv";
+    std::string output_file = "IRX.csv";
     download_file(url, output_file);
 
     std::fstream f;
@@ -193,7 +193,9 @@ namespace yfapi
 
     f.close();
     std::remove(output_file.c_str());
-    return arr[0]/1200;
+    double rfr = arr[0]/100;
+    // Return the effective annual rate scaled to daily
+    return pow(1+rfr,1/365)-1;
   }
  
   /*

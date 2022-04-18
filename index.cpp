@@ -7,13 +7,14 @@
 #include <stdlib.h>
 #include <vector>
 #include <ctime>
+#include <chrono>
 #include <gnugraph/GnuGraph.h>
 #include "yfapi.hpp"
 
 int main(){
-  
+  auto run = std::chrono::high_resolution_clock::now();
   yfapi::YahooFinanceAPI api;
-  api.set_interval(MONTHLY);
+  api.set_interval(DAILY);
 
   // Variables
   std::time_t end = std::time(0);
@@ -52,7 +53,7 @@ int main(){
   double rfr = api.risk_free_rate();
   
   // Generating the efficient frontier through simulation
-  int portfolio_num = 100000;
+  int portfolio_num = 25000;
   std::vector<std::vector<double>> weights;
   std::vector<double> weight;
   std::vector<double> expected_return;
@@ -89,7 +90,7 @@ int main(){
     expected_return.push_back(exp_r);
     expected_volatility.push_back(exp_v);
     //Get annualized sharpe ratio
-    sharpe_r = std::sqrt(12)*(exp_r - rfr)/exp_v;
+    sharpe_r = std::sqrt(365)*(exp_r - rfr)/exp_v;
     sharpe.push_back(sharpe_r);
   }
   double max = vec_max(sharpe);
@@ -100,6 +101,9 @@ int main(){
     std::cout << weights[index][i] <<", ";
   }
   std::cout << weights[index][weights[0].size()-1] << "] with a sharpe ratio of " << max << std::endl;
+  auto stop = std::chrono::high_resolution_clock::now();
+  auto duration = std::chrono::duration_cast<std::chrono::seconds>(stop - run);
+  std::cout << duration.count() << std::endl;
   
   /*
   //Drawing the scatterplot
